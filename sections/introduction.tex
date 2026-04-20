@@ -1,0 +1,77 @@
+% ============================================================
+%  ABSTRACT
+% ============================================================
+\begin{abstract}
+Large language models (LLMs) have achieved remarkable performance across a broad range of natural
+language processing tasks, yet their practical utility at the edge remains constrained by prohibitive
+computational costs.
+This paper presents \textbf{NanoChat 2.0}, a systematic study of whether
+recent architectural and training innovations transfer meaningfully to a compact, GPT-2-scale
+autoregressive language model.
+Building on the NanoChat framework \parencite{nanochat}, we conduct controlled experiments with
+four independent modifications: alternative activation functions (GeLU, GeLUSine, GELU-Sinc-Perturbation, GMTU, and Turbulent), multi-token prediction (MTP) loss, an Engram conditional memory
+layer \parencite{cheng2026conditional}, and learned Attention Residuals \parencite{chen2026attnres}.
+All experiments share the same FineWeb-Edu pretraining corpus and are evaluated using validation
+bits-per-byte (BPB) and the CORE score across 22 diverse tasks.
+Our key finding is that the NanoChat baseline with ReLU\(^2\) activation, already carefully
+optimised, proves surprisingly hard to beat at a depth-12 scale of roughly 85 million parameters.
+MTP offers a modest advantage on knowledge-intensive sub-tasks (ARC, MMLU) at the cost of
+training throughput; Attention Residuals and Engram both underperform the baseline on aggregate
+metrics.
+Notably, enabling FP8 mixed-precision training yields the largest consistent gain across all
+metrics with no architectural changes.
+Our work serves as a reproducible proof-of-concept demonstrating that meaningful experimentation
+on modern autoregressive LMs can be conducted on modest academic hardware, providing a controlled
+setting to disentangle technique from scale.
+\end{abstract}
+
+% ============================================================
+%  INTRODUCTION
+% ============================================================
+\section{Introduction}
+
+\subsection{Motivation}
+
+Large language Models have demonstrated strong performance across a wide range of natural language
+processing tasks, but training and deploying them typically requires substantial computational
+resources, as modern frontier systems reach hundreds of billions of parameters
+\parencite{deepseekai2025deepseekv3technicalreport}.
+This makes it difficult to experiment with them in a small-scale setting that can be trained and
+tested locally.
+\textit{NanoChat} \parencite{nanochat} addresses this issue by providing a minimal, end-to-end
+chatbot framework designed to reproduce GPT-2-style language modelling behaviour at a much smaller
+scale and cost.
+Its compact design makes it a useful experimental testbed: it is large enough to capture the
+essential components of modern autoregressive language models, yet small enough to be trained and
+modified under limited academic resources.
+As a result, NanoChat provides an ideal platform for systematically evaluating whether recent
+advances in architecture and training produce meaningful gains in practice.
+
+A second concern is scientific reproducibility.
+Because ablation studies on frontier models require millions of dollars of compute, the research
+community has limited ability to verify or build upon reported gains.
+A small, well-specified testbed like NanoChat allows controlled experiments in which a single
+variable can be changed in isolation and results can be confirmed by independent researchers.
+This democratises empirical LLM research and helps determine whether observed benefits originate
+from the techniques themselves rather than from scale.
+
+\subsection{Objective}
+
+Through this project we introduce \textbf{NanoChat 2.0}, an improved small-scale language model
+built on top of the NanoChat framework.
+Our central research question is: \textit{to what extent can recent architectural and training
+innovations improve the efficiency and performance of a small-scale language model?}
+We select four techniques that represent distinct axes of model improvement---activation function
+design, training objective, memory augmentation, and residual connection design---and evaluate
+each in isolation against a carefully replicated baseline.
+As a secondary goal, we study the behaviour of FP8 mixed-precision training as an orthogonal
+efficiency lever.
+
+\subsection{NLP Task}
+
+Large Language Models are commonly associated with broad downstream capabilities such as
+summarisation, machine translation, question answering, and sentiment analysis.
+These abilities are fundamentally grounded in the core task of autoregressive language modelling.
+Accordingly, our project focuses primarily on improving NanoChat as an \textbf{autoregressive
+language model for open-ended text generation}, using language modelling metrics and downstream
+zero/few-shot task performance as proxies for general NLP capability.

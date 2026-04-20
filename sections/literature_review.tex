@@ -1,0 +1,145 @@
+% ============================================================
+%  LITERATURE REVIEW
+% ============================================================
+\section{Literature Review}
+
+\subsection{Autoregressive Language Models and the GPT Lineage}
+
+The modern era of large language models began with the Transformer architecture
+\parencite{vaswani2017attention}, which replaced recurrent networks with self-attention and
+positional encodings, enabling vastly better parallelisation during training.
+GPT-2 \parencite{radford2019gpt2} demonstrated that a purely autoregressive, decoder-only
+Transformer trained on a large web corpus could achieve strong zero-shot and few-shot performance
+across a diverse set of NLP benchmarks without task-specific fine-tuning.
+Subsequent scaling---GPT-3 \parencite{brown2020language} and beyond---showed that language
+modelling loss and downstream task performance both improve smoothly as a power law in compute,
+dataset size, and parameter count \parencite{hoffmann2022chinchilla}.
+While this scaling paradigm has driven frontier capabilities, it has also substantially raised
+the barrier to academic experimentation.
+
+Recent efforts have therefore explored whether carefully designed \emph{small} models can close
+the gap with brute-force scale.
+Compact, reproducible frameworks such as NanoGPT \parencite{karpathy2022nanogpt} and its
+successor NanoChat \parencite{nanochat} provide minimal, end-to-end implementations of GPT-2
+style models that can be trained on a single GPU node for a cost of around \$100.
+NanoChat in particular packages the model as a complete chatbot harness, including pretraining on
+FineWeb-Edu \parencite{finewebedu,penedo2024fineweb}, a BPE tokeniser with UTF-8 byte fallback,
+and evaluation against the DataComp-LM CORE suite \parencite{li2025datacomplmsearchgenerationtraining}.
+These frameworks enable systematic, reproducible ablation studies that are infeasible at frontier
+scale.
+
+\subsection{Residual Connections and their Limitations}
+
+Residual connections were introduced by \textcite{he2016deep} to address the vanishing gradient
+problem in very deep networks, enabling the training of hundred-layer convolutional networks.
+The update $h_l = h_{l-1} + f_{l-1}(h_{l-1})$ provides an identity shortcut that lets gradients
+flow unimpeded to early layers.
+Transformer architectures \parencite{vaswani2017attention} universally adopt a variant of this
+pattern, typically combined with Pre-Layer Normalisation (PreNorm) for training stability.
+
+However, \textcite{chen2026attnres} identify a structural limitation: standard residuals
+accumulate all previous layer outputs with \emph{fixed, uniform weights}, causing the hidden
+state magnitude to grow as $O(L)$ with depth and progressively diluting each individual layer's
+contribution---a phenomenon they term \emph{PreNorm dilution}.
+They propose \textbf{Attention Residuals (AttnRes)}, which replaces the fixed additive
+accumulation with learned, input-dependent softmax attention over all preceding layer outputs.
+This allows each layer to selectively retrieve relevant representations from any depth.
+For large-scale training, they introduce Block AttnRes, which partitions layers into blocks and
+attends over block-level aggregates, reducing memory from $O(Ld)$ to $O(Nd)$.
+The Kimi Team demonstrates that AttnRes mitigates PreNorm dilution and improves training
+dynamics, though their experiments are conducted at large scale.
+Whether these gains transfer to shallow ($L=12$) models is an open question that we address
+directly.
+
+\subsection{Activation Functions}
+
+The choice of activation function has a significant effect on the information flow and gradient
+dynamics of deep networks.
+The Rectified Linear Unit (ReLU) \parencite{nair2010rectified} became the default for many years
+due to its simplicity and non-saturating gradient, though it suffers from the ``dying ReLU''
+problem for negative inputs.
+\textcite{hendrycks2016gelu} proposed the Gaussian Error Linear Unit (GeLU),
+$\mathrm{GeLU}(x) = \frac{x}{2}\left[1 + \mathrm{erf}\!\left(\frac{x}{\sqrt{2}}\right)\right]$,
+which provides a smooth, probabilistically-motivated gating of inputs.
+GeLU has since become the dominant activation in large language models including GPT-2, BERT, and
+their descendants.
+
+NanoChat adopts $\mathrm{ReLU}^2$ (squaring the ReLU output), which has been shown to improve
+sparsity and training efficiency in autoregressive models
+\parencite{so2021primer}.
+More recently, \textcite{vitvitskyi2026mininggeneralizableactivationfunctions} applied
+evolutionary search to discover activation functions that generalise across tasks.
+Their approach perturbs established functions with trigonometric components: \textit{GeLUSine}
+adds a sinusoidal correction $0.1\sin(x)$ to GeLU, while \textit{GELU-Sinc-Perturbation} (GSP)
+multiplicatively gates GeLU with a scaled sinc function.
+These activations achieved improved performance on computer vision benchmarks with small models,
+though their efficacy for language modelling had not been established.
+Our experiments directly test this transfer.
+
+\subsection{Multi-Token Prediction}
+
+Standard next-token prediction trains the model to predict $x_{t+1}$ given the context
+$x_{1:t}$.
+While simple and effective, this one-step objective has been criticised for promoting
+``lazy'' representations that exploit local statistics rather than longer-range structure, and is
+vulnerable to \emph{error avalanche}: small mistakes in generation propagate and compound over
+many steps.
+\textcite{gloeckle2024better} proposed \textbf{Multi-Token Prediction (MTP)}, which trains
+$n$ independent output heads to simultaneously predict the next $n$ tokens:
+$L_n = -\sum_t \log P_\theta(x_{t+1:t+n} | x_{1:t})$.
+The authors demonstrate that this objective encourages richer, more structured internal
+representations, improving both perplexity and downstream task performance for large models
+trained on substantial corpora.
+MTP also opens additional inference-time options such as speculative decoding.
+However, the overhead of $n$ output heads and the additional memory required to store intermediate
+activations raise questions about its efficiency at academic scale---a gap we quantify in our
+experiments.
+
+\subsection{Memory-Augmented Language Models}
+
+Augmenting Transformers with external or persistent memory is an active research direction aimed
+at extending effective context beyond what fits in the attention window.
+Early work such as Memory Networks \parencite{weston2015memory} and the Differentiable Neural
+Computer \parencite{graves2016hybrid} demonstrated that explicit key-value stores can help models
+reason over facts not present in a fixed context.
+More recently, Retrieval-Augmented Generation (RAG) \parencite{lewis2020rag} has become a
+standard technique for grounding LLMs in external knowledge at inference time, without modifying
+model weights.
+
+\textcite{cheng2026conditional} take a different approach with the \textbf{Engram layer}: a
+conditional memory mechanism that augments individual transformer layers with a differentiable
+key-value store addressed by n-gram hash IDs.
+The module takes the current hidden state and n-gram context as input, performs an $O(1)$ lookup
+to retrieve stored embeddings, and adds the result back into the residual stream before the
+standard transformer block.
+The original paper demonstrates consistent perplexity improvements on models of 27 billion
+parameters trained on 262 billion tokens, framing the memory store as a new axis of sparsity
+orthogonal to Mixture-of-Experts routing.
+A key question is whether this mechanism, designed and validated at large scale, provides any
+benefit for a shallow 12-layer model of approximately 85 million parameters trained for only 5000
+steps---a significantly more data- and parameter-starved regime.
+
+\subsection{Efficient Training: Mixed-Precision and FP8}
+
+Beyond architectural modifications, training precision has emerged as an important efficiency
+lever.
+FP16 mixed-precision training \parencite{micikevicius2018mixed} became standard practice by
+allowing most operations to run in half-precision while keeping a master copy of weights in
+FP32 to preserve gradient fidelity.
+More recently, the Hopper-generation H100 GPU introduced native FP8 tensor core support, enabling
+8-bit floating-point matrix multiplications with theoretical throughput improvements.
+\textcite{peng2023fp8} and subsequent work have shown that careful FP8 quantisation during
+training can match FP16 performance while approximately doubling arithmetic throughput.
+An emerging hypothesis---explored in our experiments---is that the quantisation noise introduced
+by FP8 may act as an implicit regulariser, improving generalisation in data-limited regimes.
+
+\subsection{Evaluation of Language Models at Small Scale}
+
+Evaluating language models reliably at small scales is non-trivial.
+Standard benchmarks designed for large models often show high variance when applied to models
+below a certain capability threshold.
+The CORE evaluation suite from DataComp-LM \parencite{li2025datacomplmsearchgenerationtraining}
+addresses this by selecting 22 tasks specifically for their low-variance signal at small scales,
+computing \emph{centered accuracies} to normalise for task difficulty.
+We adopt CORE as our primary downstream metric, supplemented by validation BPB and tokens per
+second as efficiency measures.

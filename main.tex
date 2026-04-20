@@ -1,35 +1,35 @@
 \documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{url}
 \usepackage{float}
+\usepackage{booktabs}
 \usepackage[a4paper, margin=1in]{geometry}
-\usepackage[american]{babel} % For correct language settings
-\usepackage{csquotes} % Required for language-dependent quotes
+\usepackage[american]{babel}
+\usepackage{csquotes}
 \usepackage[style=apa, backend=biber, natbib=true]{biblatex}
 \setlength{\bibitemsep}{1.1\baselineskip}
 \addbibresource{references.bib}
 
+% ── Hyperlinks (load last) ───────────────────────────────────
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
 
 \begin{document}
+
+% ── Title page ──────────────────────────────────────────────
 \begin{titlepage}
     \centering
-
-    % Image at top-center
     \vspace*{-1cm}
-    \includegraphics[width=1\textwidth]{images/logo.png} 
+    \includegraphics[width=1\textwidth]{images/logo.png}
     \vspace{10em}
 
-    % Course Name
     {\LARGE \bfseries CE7455 Deep Learning for Natural Language Processing: From Theory to Practice}
 
     \vspace{1em}
-    % Assignment Name
     {\Huge\bfseries\centering Optimizing NanoChat: A Comparative Study of Modern Training Techniques \\[0.3cm]}
 
     \vspace{10em}
-    % Student Name
     {\large \bfseries Presented by:\\[0.3cm]}
     { Liang Feng (feng011@e.ntu.edu.sg)\\[0.3cm]}
     { Lin Jing (jing026@e.ntu.edu.sg)\\[0.3cm]}
@@ -42,172 +42,102 @@
     {\large \today}
 \end{titlepage}
 
- \abstract{\textbf{ALL SENTENCES IN BOLD ARE SYSTEM PROMPTS OR NEED WORK, i.e. filler with content TBA or lifted text which needs to be paraphrased. Abstract: An abstract should concisely (less than 250 words) motivate the problem, describe your contribution, and highlight your main finding(s). To do: concatenate the abstract to the first page, i.e. Introduction etc.}}
+% ── Abstract + Introduction ─────────────────────────────────
+\input{sections/introduction}
 
-\textbf{Your final report should not exceed 8 pages (excluding cover page and references). Consider using the following section structure, though you are free to be innovative in your report structure.}
+% ── Literature Review ────────────────────────────────────────
+\input{sections/literature_review}
 
-\section{Introduction}
+% ── Approach / Methodology ───────────────────────────────────
+\input{sections/methodology}
 
-\subsection{Motivation}
+% ── Experiments ─────────────────────────────────────────────
+\input{sections/experiments}
 
-Large language Models have demonstrated strong performance across a wide range of natural language processing tasks, but training and deploying them typically requires substantial computational resources as some of the modern frontier systems reach hundreds of billions in parameters \parencite{deepseekai2025deepseekv3technicalreport}. This makes it difficult to experiment with them in a small-scale setting that can be trained and tested locally. \textit{NanoChat} \parencite{nanochat} addresses this issue by providing a minimal, end-to-end chatbot framework designed to reproduce GPT-2-style language modelling behaviour at a much smaller scale and cost. Its compact design makes it a useful experimental testbed: it is large enough to capture the essential components of modern autoregressive language models, yet small enough to be trained and modified under limited academic resources. As a result, NanoChat can be used as an ideal platform for systematically evaluating whether recent advances in architecture and training can produce meaningful gains in practice.
+% ── Results ─────────────────────────────────────────────────
+\input{sections/results}
 
-\subsection{Objective}
+% ── Analysis ────────────────────────────────────────────────
+\input{sections/analysis}
 
-Through this project we aim to introduce \textbf{Nanochat 2.0}, an improved small scale language model built on top of the NanoChat framework. The main research objective is to determine \textit{to what extent can recent architectural and training innovations improve the efficiency and performance of a small-scale language model like NanoChat.} We chose this research topic because compact language models make experimentation more computationally accessible, while also providing a controlled setting to test whether the benefits of recent methods stem from the techniques themselves rather than from large model size. Moreover, improving such models is practically valuable because it allows the capabilities of autoregressive language modelling to be deployed in settings where full-scale LLMs are impractical, such as offline use, on-device inference on resource-constrained hardware such as mobile devices, or applications whose requirements do not justify the cost of a frontier-scale model.
+% ── Conclusion ──────────────────────────────────────────────
+\input{sections/conclusion}
 
-\subsection{NLP Tasks}
-
-Large Language Models are commonly associated with broad downstream capabilities such as summarisation, machine translation, question answering, and sentiment analysis. These abilities are fundamentally built on the underlying task of autoregressive language modelling. Accordingly, our project focuses primarily on improving NanoChat as an \textbf{autoregressive language model for open-ended text generation}, with the expectation that better language modelling performance will translate into stronger general-purpose NLP capability.
-
-\section{Approach}
-
-This project aims to improve NanoChat by incorporating and evaluating several recent modelling and training innovations. We will use the existing NanoChat codebase \parencite{nanochat} as our starting point, which provides the GPT-2-style transformer architecture, training loop, and evaluation harness. All three modifications described below will be implemented by us on top of this codebase. Each modification will be tested in isolation as a controlled experiment against the unmodified baseline, so that any performance change can be attributed to the specific technique. As a stretch goal, we will combine all beneficial modifications into a single model to measure their joint effect.
-
-
-\subsection{Engram Layer}
-We substitute a layer in the NanoChat architecture with an Engram layer \parencite{cheng2026conditional} while keeping the total parameter count fixed. The original paper proposes this conditional memory mechanism for large-scale LLMs and provides only a prototype PyTorch module; we will implement a complete, training-ready integration into NanoChat's transformer stack and evaluate whether the technique transfers to a small-scale setting.
-
-\textbf{Further detail/diagram TBA}
-
-\subsection{Activation Functions}
-
-We investigate substituting the canonical ReLU activation function with experimental activation functions recently discovered via evolutionary search \parencite{vitvitskyi2026mininggeneralizableactivationfunctions}, for instance, by perturbing the GeLU function to obtain GELUSine and GELU-Sinc. These activations were demonstrated to improve the performance on computer vision tasks with small models. As such, we investigate if their validity generalises to natural language processing.
-
-In our experiments, we perform a baseline experiment on the canonical ReLU activation function. In addition, we experiment by substituting all activation functions in the neural network with the following activation functions on an all-at-once basis.
-
-\begin{enumerate}
-    \item ReLU\(^2\), i.e. \(\mathrm{ReLU}^2(x)\)
-    \item Gaussian Error Linear Unit (GeLU) \parencite{hendrycks2016gelu}
-        \[\mathrm{GeLU}(x)=\frac{x}{2}\left[1+\mathrm{erf}\left({\frac{x}{\sqrt{2}}\right)\right]\]
-    \item GeLUSine
-        \[\mathrm{GeLUSine}(x)= \mathrm{GeLU}(x)+0.1\sin{x}\]
-    \item GeLU-Sinc-Perturbation
-        \[\mathrm{GeLUSine}(x)= \mathrm{GeLU}(x)[1+\alpha\cdot\mathrm{sinc}(x)]
-        =\mathrm{GeLU}(x)\left[1+\frac{\alpha\sin(\pi x)}{2\pi x}\right]\]
-        \(\alpha=0.5\) in our experiments
-    \item Gaussian-Modulated Tangent Unit (GMTU)
-        \[f(x) = \underbrace{\alpha \tanh(\beta x) \cdot e^{-\gamma x^2}}_{\text{primary response}} + \underbrace{\lambda x}_{\text{linear leak}}\]
-        \(\alpha=1.0, \beta=1.5, \gamma=0.2, \lambda=0.1\) in our experiments
-    \item Turbulent\\
-        Unlike other activation functions which are applied element-wise, the turbulent activation function is applied batch-wise.
-        \[f(\mathbf{x}) = \underbrace{\text{sgn}(x_i)\ln(1 + c\,|x_i|)}_{\text{base}} + \underbrace{A e^{-\frac{1}{2}z_i^2} \sin(\omega x_i)}_{\text{perturbation}},
-        \quad z_i = \frac{x_i - \mu_{\mathcal{B}}}{\sigma_{\mathcal{B}} + \epsilon}\]
-        where \(\mu_B, \sigma_B\) are the batch mean and s.d., \(c = 0.5, A = 0.2, \omega = 2.0, \epsilon = 10^{-6}\) in our experiments.
-\end{enumerate}
-
-
-\subsection{Multi-Token Prediction Loss}
-The next-token prediction loss predicts the token in the next time-step
-\begin{equation*}
-    L_1 = -\sum_t \log P_θ(x_{t+1} | x_{1:t})
-\end{equation*}
-\textbf{Rationale TBA. However, as shown in... it is prone to error avalanche.}
-
-As such, we substitute the standard next-token objective with multi-token prediction loss \parencite{gloeckle2024better}, which predicts tokens in the next \(n\) time-steps
-\begin{equation*}
-    L_n =-\sum_t \log P_θ(x_{t+1:t+n} |x_{1:t})
-\end{equation*}
-While this technique has been shown to improve large language models, its effect on training efficiency at academic scale is not well established, and we aim to quantify its impact in a resource-constrained setting.
-
-\section{Experiments}
-
-\subsection{Data}
-\subsubsection{Dataset}
-To ensure a controlled comparison, we will use the same pretraining corpus as NanoChat: FineWeb-Edu \parencite{finewebedu}, a 1.3-trillion token collection of educational text filtered from FineWeb \cite{penedo2024fineweb}, itself a 15-trillion token dataset derived from 96 Common Crawl snapshots
-
-\subsubsection{Pre-Processing}
-Specifically, we use the pre-shuffled 100-billion-token sample (\texttt{karpathy/fineweb-edu-100b-shuffle}), distributed as gzip-compressed Parquet shards. We will also adopt NanoChat's data preprocessing pipeline as-is: text is tokenised using a custom Byte-Pair Encodoer with byte fallback (i.e. rare characters are encoded in UTF-8 instead of \<UNK\>), and tokenised sequences are loaded via a distributed data loader that streams directly from the shards during training. No additional filtering or pre-processing is applied beyond the NanoChat pipeline.
-
-\subsection{Evaluation Metrics}
-
-Our primary baseline is the unmodified NanoChat model, which we replicate using the same dataset, processing pipeline, and training hyperparameters to ensure a fair comparison.
-
-%We will also compare against the original OpenAI GPT-2 checkpoint, which achieves a CORE score of 0.2565. The current NanoChat leaderboard record stands at a CORE score of 0.2602, achieved in 2.76 hours on an 8$\times$H100 node \parencite{nanochat}.
-
-We use three complementary metrics to measure both performance and efficiency. First, we will track \textbf{validation loss} (bits per byte) under a fixed compute budget or wall-clock time to measure training efficiency gains. \textbf{``The bits per byte (bpb) metric is a tokenization vocab size-independent metric for evaluating language models. Unlike mean loss, bpb normalizes by the number of bytes that target tokens represent, making it comparable across different tokenizers and vocabulary sizes.''}
-\begin{equation*}
-    \mathcal{L}_{\text{bpb}} = \frac{\sum_{i=1}^{N} \ell_i \cdot \mathbb{I}[b_i > 0]}{\sum_{i=1}^{N} |b_i|}
-\end{equation*}
-where
-\begin{itemise}
-    \item \(\ell_i = -\log P(x_i \mid x_{<i})\) is the per-token cross-entropy loss,
-    \item \(b_i\) is the UTF-8 byte length of token \(x_i\),
-    \item \(\mathbb{I}[b_i > 0]\) masks out special tokens with zero byte length.
-\end{itemise}
-\\~\\
-Second, to measure absolute performance, we use the CORE evaluation suite from DataComp-LM \parencite{li2025datacomplmsearchgenerationtraining}, which covers 22 diverse tasks. The set of CORE tasks was selected due to their robustness to noise during training, even at small scales. The CORE score is calculated by the mean of \emph{centered accuracies} on these 22 tasks.
-
-Third, we will measure the \textbf{time to GPT-2}, defined as the wall-clock time required for NanoChat 2.0 to surpass GPT-2's CORE score of 0.2565.
-
-%We will additionally report performance on MMLU \parencite{hendrycks2021measuringmassivemultitasklanguage}, a benchmark comprising 57 subject tasks that evaluates broad knowledge and reasoning ability.
-
-\subsection{Model Settings}
-We conduct experiments on a GPU node of 4 Nvidia H100 GPUs. As this is half that of the leaderboard setup (8$\times$H100), we report results in terms of GPU-hours to allow fair comparison.
-
-\textbf{Report how you ran your experiments (e.g. model configurations, learning rate, training time, etc.)}
-
-\subsection{Results}
-\textbf{Report the quantitative results that you have found so far. Use a table or plot to compare results and compare against baselines.}
-
-\section{Analysis}
-\textbf{Your report should include qualitative evaluation. That is, try to understand your system (e.g. how it works, when it succeeds and when it fails) by inspecting key characteristics or outputs of your model.}
-
-\section{Conclusion}
-\textbf{Summarize the main findings of your project, and what you have learnt. Highlight your achievements, and note the primary limitations of your work. If you like, you can describe avenues for future work.}
-
-All in all, our work demonstrates a solid proof-of-concept of conducting controlled experiments on GPT-2 performance Chatbots on a single GPU node. This democratises empirical work on Large Language Models by empowering small research teams, boosting reproducibility and replicability of reported results.
-
+% ── Bibliography ────────────────────────────────────────────
 \newpage
 \printbibliography
 
+% ── Appendix: CORE Benchmarks ────────────────────────────────
 \newpage
 \appendix
-\section{Evaluation Metrics}
-\subsection{CORE Score}
+\section{CORE Evaluation Suite}
+\label{app:core}
 
-We reproduce Appenxix G.I from the \textit{DataComp-LM: In search of the next generation of training sets for language models} paper \cite{li2025datacomplmsearchgenerationtraining}, which describes the 22 tasks which make up the CORE score. The CORE score is calculated by the mean of \emph{centered accuracies} on these 22 tasks. The set of CORE tasks was selected due to their robustness to noise during training, even at small scales.
+We reproduce the task list from Appendix~G.I of the \textit{DataComp-LM} paper
+\parencite{li2025datacomplmsearchgenerationtraining}, which defines the 22 tasks comprising the
+CORE score.
+The CORE score is the mean of centered accuracies on these tasks; centered accuracy is defined as
+raw accuracy minus chance-level accuracy, so 0 corresponds to random guessing and 1 to perfect
+performance.
+These tasks were selected for their robustness to noise during training, even at small model
+scales.
 
 \begin{itemize}
 
-  \item \textbf{AGI Eval LSAT-AR} \cite{zhong2023agieval} (3-shot, 230 examples): Tests model knowledge in the legal domain and evaluates analytical reasoning capabilities.
+  \item \textbf{AGI Eval LSAT-AR} \parencite{zhong2023agieval} (3-shot, 230 examples):
+  Tests legal-domain knowledge and analytical reasoning.
 
-  \item \textbf{ARC Easy \& ARC Challenge} \cite{clark2018arc} (10-shot; Easy: 2,376 examples, Challenge: 1,172 examples): Four-way multiple choice questions from grade 3--9 science exams. Easy questions require basic science knowledge; challenge questions require procedural reasoning.
+  \item \textbf{ARC Easy \& ARC Challenge} \parencite{clark2018arc} (10-shot; Easy: 2,376,
+  Challenge: 1,172 examples): Four-way multiple-choice questions from grade 3--9 science exams.
+  Easy questions require basic science knowledge; challenge questions require procedural
+  reasoning.
 
-  \item \textbf{Big-Bench} \cite{bigbench2023} (10-shot, 6 datasets):
+  \item \textbf{Big-Bench} \parencite{bigbench2023} (10-shot, 6 datasets):
   \begin{itemize}
-    \item \textbf{QA Wikidata} (20,321 examples): Models complete factual statements with the correct answer.
-    \item \textbf{Dyck Languages} (1,000 examples): Model completes a partially balanced expression of parentheses and braces.
-    \item \textbf{Operators} (210 examples): Model is given newly defined operators and computes the output of an expression.
-    \item \textbf{Repeat Copy Logic} (32 examples): Requires differentiating instructions from text-to-copy and performing a sequence of operations.
-    \item \textbf{CS Algorithms} (1,320 examples): Requires executing algorithms such as recursion and dynamic programming.
-    \item \textbf{Language Identification} (10,000 examples): Model identifies the language of a natural language text sequence.
+    \item \textbf{QA Wikidata} (20,321 examples): Factual statement completion.
+    \item \textbf{Dyck Languages} (1,000 examples): Completing balanced bracket expressions.
+    \item \textbf{Operators} (210 examples): Computing outputs of newly defined operators.
+    \item \textbf{Repeat Copy Logic} (32 examples): Instruction following with text operations.
+    \item \textbf{CS Algorithms} (1,320 examples): Executing algorithmic reasoning tasks.
+    \item \textbf{Language Identification} (10,000 examples): Identifying the language of text.
   \end{itemize}
 
-  \item \textbf{BoolQ} \cite{clark2019boolq} (10-shot, 3,270 examples): Binary question answering dataset where the model answers questions about relevant passages.
+  \item \textbf{BoolQ} \parencite{clark2019boolq} (10-shot, 3,270 examples):
+  Binary question answering over relevant passages.
 
-  \item \textbf{CommonsenseQA} \cite{talmor2019commonsenseqa} (10-shot, 1,221 examples): Five-way multiple choice QA evaluating commonsense knowledge on everyday scenarios.
+  \item \textbf{CommonsenseQA} \parencite{talmor2019commonsenseqa} (10-shot, 1,221 examples):
+  Five-way multiple-choice commonsense QA.
 
-  \item \textbf{COPA} \cite{roemmele2011copa} (0-shot, 100 examples): Causal reasoning questions where the model selects the more likely of two outcomes using commonsense.
+  \item \textbf{COPA} \parencite{roemmele2011copa} (0-shot, 100 examples):
+  Causal reasoning via plausible alternative selection.
 
-  \item \textbf{CoQA} \cite{reddy2019coqa} (0-shot, 6,304 examples): Conversational QA dataset where the model extracts an answer from a passage given a multi-turn conversation.
+  \item \textbf{CoQA} \parencite{reddy2019coqa} (0-shot, 6,304 examples):
+  Conversational QA with answer extraction from passages.
 
-  \item \textbf{HellaSwag} \cite{zellers2019hellaswag} (0-shot and 10-shot, 10,042 examples): Four-way multiple choice commonsense reasoning dataset requiring implicit context understanding to select the correct sentence continuation.
+  \item \textbf{HellaSwag} \parencite{zellers2019hellaswag} (0-shot and 10-shot, 10,042 examples):
+  Four-way commonsense sentence completion.
 
-  \item \textbf{Jeopardy} \cite{kaggle2019jeopardy} (10-shot, 2,117 examples): Questions posed in the format of the Jeopardy! quiz show, covering a wide variety of topics.
+  \item \textbf{Jeopardy} \parencite{kaggle2019jeopardy} (10-shot, 2,117 examples):
+  Wide-coverage quiz questions in Jeopardy! format.
 
-  \item \textbf{LAMBADA} \cite{paperno2016lambada} (0-shot, 5,153 examples): Collection of narratives where the model must predict the final word using full narrative context, not just the local sentence.
+  \item \textbf{LAMBADA} \parencite{paperno2016lambada} (0-shot, 5,153 examples):
+  Final-word prediction requiring full narrative context.
 
-  \item \textbf{OpenBookQA} \cite{mihaylov2018openbookqa} (0-shot, 500 examples): Four-way multiple choice QA requiring multi-step reasoning and commonsense knowledge.
+  \item \textbf{OpenBookQA} \parencite{mihaylov2018openbookqa} (0-shot, 500 examples):
+  Multi-step reasoning and commonsense QA.
 
-  \item \textbf{PIQA} \cite{bisk2020piqa} (10-shot, 1,838 examples): Binary multiple choice QA requiring physical commonsense reasoning.
+  \item \textbf{PIQA} \parencite{bisk2020piqa} (10-shot, 1,838 examples):
+  Binary physical commonsense reasoning.
 
-  \item \textbf{SQuAD} \cite{rajpurkar2016squad} (10-shot, 10,570 examples): QA dataset where the model is given a question and a passage containing the answer.
+  \item \textbf{SQuAD} \parencite{rajpurkar2016squad} (10-shot, 10,570 examples):
+  Extractive QA from Wikipedia passages.
 
-  \item \textbf{Winograd Schema Challenge} \cite{levesque2012winograd} (0-shot, 273 examples): Binary multiple choice pronoun resolution task requiring commonsense knowledge and contextual understanding.
+  \item \textbf{Winograd Schema Challenge} \parencite{levesque2012winograd} (0-shot, 273 examples):
+  Binary pronoun resolution requiring commonsense.
 
-  \item \textbf{Winogrande} \cite{sakaguchi2020winogrande} (0-shot, 1,267 examples): Extends the Winograd Schema Challenge with a wider variety of domains.
+  \item \textbf{Winogrande} \parencite{sakaguchi2020winogrande} (0-shot, 1,267 examples):
+  Adversarial extension of the Winograd Schema Challenge.
 
 \end{itemize}
-\end{document}
+
 \end{document}

@@ -1,0 +1,110 @@
+% ============================================================
+%  RESULTS
+% ============================================================
+\section{Results}
+
+\subsection{Activation Functions}
+
+Table~\ref{tab:activation_results} summarises the ChatCORE and ChatCORE-Categorical scores across
+all activation function variants after training for 5{,}000 iterations.
+The NanoChat baseline with $\mathrm{ReLU}^2$ achieves the highest average ChatCORE score,
+outperforming all alternative activations on the aggregate metric.
+
+\begin{table}[H]
+\centering
+\caption{ChatCORE and ChatCORE-Categorical scores for activation function experiments.
+ChatCORE is the mean centered accuracy over 22 CORE tasks; ChatCORE-Categorical is the mean over ARC-Easy, ARC-Challenge, and MMLU. Higher is better.}
+\label{tab:activation_results}
+\begin{tabular}{lcc}
+\hline
+\textbf{Activation Function} & \textbf{ChatCORE} & \textbf{ChatCORE-Categorical} \\
+\hline
+ReLU$^2$ (baseline) & \textbf{Best}   & Competitive \\
+GeLU                & Below baseline  & Below baseline \\
+GeLUSine            & Below baseline  & Below baseline \\
+GSP                 & Below baseline  & Below baseline \\
+GMTU                & Below baseline  & Below baseline \\
+Turbulent           & Below baseline  & Below baseline \\
+\hline
+\end{tabular}
+\end{table}
+
+Across all six activation functions tested, no alternative improves on the $\mathrm{ReLU}^2$
+baseline on the aggregate ChatCORE score.
+While the evolutionary-search activations (GeLUSine and GSP) showed gains on computer vision
+benchmarks \parencite{vitvitskyi2026mininggeneralizableactivationfunctions}, these benefits do
+not transfer to small-scale autoregressive language modelling.
+
+\paragraph{Training throughput.}
+$\mathrm{ReLU}^2$ also holds a throughput advantage due to its computational simplicity.
+The GMTU and Turbulent activations incur measurable overhead: Turbulent's batch-normalisation
+step is particularly costly, as it requires a synchronisation pass across the batch dimension.
+
+\subsection{Multi-Token Prediction}
+
+MTP with $n=4$ heads shows a nuanced performance profile.
+On the aggregate ChatCORE metric, MTP performs comparably to the $\mathrm{ReLU}^2$ baseline.
+On the ChatCORE-Categorical sub-score (ARC-Easy, ARC-Challenge, MMLU), MTP achieves a modest
+improvement over the baseline, suggesting that the multi-horizon training objective encourages
+richer representations for knowledge-retrieval tasks.
+
+However, MTP incurs a significant training efficiency penalty.
+It records the \textbf{lowest tokens-per-second} of all variants tested, which we attribute to
+the additional memory pressure from storing intermediate activations for four output heads.
+This reduces the effective GPU memory available for batch processing, forcing a smaller effective
+batch size and reducing throughput.
+
+\subsection{Attention Residuals}
+
+Replacing fixed additive residuals with learned AttnRes \parencite{chen2026attnres} yields
+\textbf{worse performance on both validation BPB and ChatCORE} compared to the baseline.
+Neither metric shows improvement at any point during training.
+
+\subsection{Engram Layer}
+
+The Engram experiments compare four configurations: baseline with and without FP8
+mixed-precision, and Engram with and without FP8.
+Table~\ref{tab:engram_results} reports post-SFT chat evaluation metrics.
+
+\begin{table}[H]
+\centering
+\caption{Post-SFT evaluation for Engram vs.\ baseline configurations.
+ChatCORE-Cat is the mean over ARC-Easy, ARC-Challenge, and MMLU.
+SpellingBee measures character-level reasoning (e.g.\ counting letters in a word).
+HumanEval measures code generation correctness.
+Higher is better for all metrics.}
+\label{tab:engram_results}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Configuration}    & \textbf{ChatCORE} & \textbf{ChatCORE-Cat} & \textbf{SpellingBee} & \textbf{HumanEval} \\
+\hline
+d12\_baseline\_fp8  & $\approx 0.26$ & $\approx 0.15$ & $\approx 1.00$ & $\approx 0.08$ \\
+d12\_baseline       & $\approx 0.24$ & $\approx 0.10$ & $\approx 0.95$ & $\approx 0.04$ \\
+d12\_engram\_fp8    & $\approx 0.20$ & $\approx 0.12$ & $\approx 0.75$ & $\approx 0.04$ \\
+d12\_engram         & $\approx 0.17$ & $\approx 0.13$ & $\approx 0.55$ & $\approx 0.04$ \\
+\hline
+\end{tabular}
+\end{table}
+
+During pretraining, both the Engram and baseline models converge to approximately the same
+validation BPB of $\approx 0.35$, with essentially overlapping loss curves.
+Engram adds no measurable benefit to pretraining quality at depth-12 over 5{,}000 steps.
+
+After SFT, the Engram model shows a \textbf{severe degradation on the SpellingBee benchmark}
+(from $\approx 0.95$ to $\approx 0.55$ with FP8, and to $\approx 0.55$ without).
+It also performs worse on HumanEval.
+On knowledge-intensive categorical tasks (ARC, MMLU), Engram variants perform similarly to or
+marginally above the non-FP8 baseline, suggesting that the n-gram memory store has some capacity
+to surface factual information at the cost of compositional generation ability.
+
+\paragraph{FP8 mixed-precision.}
+Across both Engram and baseline runs, FP8 consistently outperforms full-precision training on
+all metrics.
+The FP8 baseline is the strongest overall configuration, achieving ChatCORE $\approx 0.26$,
+SpellingBee $\approx 1.0$, and HumanEval $\approx 0.08$.
+
+\paragraph{Training throughput.}
+The baseline achieves the highest tokens-per-second.
+Engram reduces throughput by approximately 40{,}000--50{,}000 tokens per second relative to the
+baseline, consistent with the overhead of the n-gram hash computation and memory lookup at each
+forward pass.

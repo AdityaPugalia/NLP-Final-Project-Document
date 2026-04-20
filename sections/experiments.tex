@@ -1,0 +1,96 @@
+% ============================================================
+%  EXPERIMENTS
+% ============================================================
+\section{Experiments}
+
+\subsection{Dataset}
+
+To ensure a controlled comparison with the NanoChat baseline, we use the same pretraining corpus:
+\textbf{FineWeb-Edu} \parencite{finewebedu}, a 1.3-trillion token collection of educational text
+filtered from FineWeb \parencite{penedo2024fineweb}, itself a 15-trillion token dataset derived
+from 96 Common Crawl snapshots.
+Specifically, we use the pre-shuffled 100-billion-token sample
+(\texttt{karpathy/fineweb-edu-100b-shuffle}), distributed as gzip-compressed Parquet shards.
+We adopt NanoChat's data preprocessing pipeline as-is: text is tokenised using a custom
+Byte-Pair Encoder with byte fallback (i.e.\ rare characters are encoded in raw UTF-8 instead of a
+generic \texttt{<UNK>} token), and tokenised sequences are loaded via a distributed data loader
+that streams directly from the shards during training.
+No additional filtering or preprocessing is applied beyond the NanoChat pipeline.
+
+\subsection{Evaluation Metrics}
+
+Our primary baseline is the unmodified NanoChat model, which we replicate using the same dataset,
+processing pipeline, and training hyperparameters to ensure a fair comparison.
+
+We use three complementary metrics to assess both quality and efficiency.
+
+\paragraph{Validation Bits-per-Byte (BPB).}
+BPB is a tokenisation-agnostic language modelling metric that normalises the per-token
+cross-entropy by the number of UTF-8 bytes the token represents, making it comparable across
+different vocabularies:
+\begin{equation*}
+    \mathcal{L}_{\text{bpb}} = \frac{\displaystyle\sum_{i=1}^{N} \ell_i \cdot \mathbb{I}[b_i > 0]}
+                                    {\displaystyle\sum_{i=1}^{N} |b_i|}
+\end{equation*}
+where $\ell_i = -\log P(x_i \mid x_{<i})$ is the per-token cross-entropy, $b_i$ is the UTF-8
+byte length of token $x_i$, and $\mathbb{I}[b_i > 0]$ masks special tokens with zero byte
+length.
+Lower BPB indicates better compression and prediction quality.
+
+\paragraph{CORE Score.}
+To measure absolute downstream performance, we use the CORE evaluation suite from
+DataComp-LM \parencite{li2025datacomplmsearchgenerationtraining}, which covers 22 diverse tasks
+including commonsense reasoning (HellaSwag, PIQA), science QA (ARC-Easy, ARC-Challenge),
+reading comprehension (SQuAD, BoolQ), and algorithmic tasks (Big-Bench subsets).
+The CORE score is computed as the mean of \emph{centered accuracies}: raw accuracy minus
+chance-level accuracy for each task, normalised so that 0 corresponds to random guessing and 1
+to perfect performance.
+These tasks were specifically selected for their robustness to noise at small model scales,
+making them well-suited to our evaluation setting.
+
+\paragraph{ChatCORE and ChatCORE-Categorical.}
+We additionally report \textbf{ChatCORE}, the mean centered accuracy aggregated over all 22 CORE
+tasks evaluated after supervised fine-tuning (SFT), and \textbf{ChatCORE-Categorical}, the mean
+over three knowledge-intensive multiple-choice tasks (ARC-Easy, ARC-Challenge, and MMLU
+\parencite{hendrycks2021measuringmassivemultitasklanguage}) that require factual recall and
+structured reasoning.
+These metrics allow us to distinguish between general language quality and knowledge-retrieval
+capability.
+
+\paragraph{Tokens Per Second.}
+As a training efficiency metric, we report the number of tokens processed per second during
+training, which captures the combined effect of computational overhead, memory pressure, and GPU
+utilisation.
+
+\subsection{Model and Hardware Settings}
+
+All experiments share the same base model configuration, summarised in
+Table~\ref{tab:model_settings}.
+
+\begin{table}[H]
+\centering
+\caption{Base model configuration for all NanoChat experiments.}
+\label{tab:model_settings}
+\begin{tabular}{ll}
+\hline
+\textbf{Hyperparameter} & \textbf{Value} \\
+\hline
+Model                   & NanoChat        \\
+Depth (layers)          & 12              \\
+Model dimension         & 768 ($= 12 \times 64$) \\
+Head dimension          & 64              \\
+Window pattern          & SSSL            \\
+Sequence length         & 2{,}048          \\
+Training iterations     & 5{,}000          \\
+\hline
+\end{tabular}
+\end{table}
+
+Hardware resources differ slightly between experiment groups due to availability constraints.
+Activation function and MTP experiments are run on \textbf{4 $\times$ H100 80\,GB} GPUs.
+Baseline replication, Engram, and Attention Residual experiments are run on
+\textbf{2 $\times$ H100 80\,GB} GPUs.
+All results are reported in terms of GPU-hours to allow normalised comparison with the NanoChat
+leaderboard, which uses 8 $\times$ H100.
+The NanoChat leaderboard record achieves a CORE score of 0.2602 in 2.76 hours on an
+8 $\times$ H100 node; the reference GPT-2 checkpoint achieves 0.2565.
