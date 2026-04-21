@@ -4,7 +4,7 @@
 \section{Results}
 
 \subsection{Activation Functions}
-
+\subsubsection{Results}
 Table~\ref{tab:activation_results} summarises the ChatCORE and ChatCORE-Categorical scores across
 all activation function variants after training for 5{,}000 iterations.
 The NanoChat baseline with $\mathrm{ReLU}^2$ achieves the highest average ChatCORE score,
@@ -12,8 +12,7 @@ outperforming all alternative activations on the aggregate metric.
 
 \begin{table}[H]
 \centering
-\caption{ChatCORE and ChatCORE-Categorical scores for activation function experiments.
-ChatCORE is the mean centered accuracy over 22 CORE tasks; ChatCORE-Categorical is the mean over ARC-Easy, ARC-Challenge, and MMLU. Higher is better.}
+\caption{ChatCORE and ChatCORE-Categorical scores for activation function experiments.}
 \label{tab:activation_results}
 \begin{tabular}{lcc}
 \hline
@@ -35,76 +34,110 @@ While the evolutionary-search activations (GeLUSine and GSP) showed gains on com
 benchmarks \parencite{vitvitskyi2026mininggeneralizableactivationfunctions}, these benefits do
 not transfer to small-scale autoregressive language modelling.
 
-\paragraph{Training throughput.}
-$\mathrm{ReLU}^2$ also holds a throughput advantage due to its computational simplicity.
-The GMTU and Turbulent activations incur measurable overhead: Turbulent's batch-normalisation
-step is particularly costly, as it requires a synchronisation pass across the batch dimension.
+\subsubsection{Analysis: $\mathrm{ReLU}^2$ Resists Replacement}
+NanoChat's activation was not chosen arbitrarily: prior work \parencite{so2021primer} found that $\mathrm{ReLU}^2$ induces a higher degree of activation sparsity than GeLU in autoregressive language models, and this sparsity has been linked to more efficient gradient flow and improved loss scaling.
+The sinusoidal perturbations introduced by GeLUSine and GSP add frequency-domain oscillations which introduced unnecessary noise in the token-level statistical setting of language modelling. The GMTU's Gaussian damping envelope effectively zeroes out large activations, which may suppress the model's ability to represent high-magnitude, semantically salient tokens. The Turbulent activation's batch-level normalisation step couples activations across the batch dimension, creating implicit dependencies that conflict with NanoChat's causal masking. Further, The GMTU and Turbulent activations incur measurable overhead: the Turbulent activation's batch-normalisation step is particularly costly, as it requires a synchronisation pass across the batch dimension. The key lesson is that activation function design interacts tightly with the training objective and data modality.
+Evolutionary search optimising for cross-dataset performance on vision tasks has yet to reliably produce activations suited to language modelling, even at small scale.
+
 
 \subsection{Multi-Token Prediction}
-
+\subsubsection{Results}
 MTP with $n=4$ heads shows a nuanced performance profile.
 On the aggregate ChatCORE metric, MTP performs comparably to the $\mathrm{ReLU}^2$ baseline.
 On the ChatCORE-Categorical sub-score (ARC-Easy, ARC-Challenge, MMLU), MTP achieves a modest
 improvement over the baseline, suggesting that the multi-horizon training objective encourages
 richer representations for knowledge-retrieval tasks.
-
 However, MTP incurs a significant training efficiency penalty.
-It records the \textbf{lowest tokens-per-second} of all variants tested, which we attribute to
-the additional memory pressure from storing intermediate activations for four output heads.
-This reduces the effective GPU memory available for batch processing, forcing a smaller effective
-batch size and reducing throughput.
+It records the \textbf{lowest tokens-per-second} of all variants tested.
+
+\subsubsection{Analysis: Richer Representations at a Throughput Cost}
+MTP with $n=4$ heads presents an interesting tension between representational quality and training efficiency. The improved ChatCORE-Categorical performance on ARC and MMLU is consistent with the hypothesis of \textcite{gloeckle2024better} that multi-horizon prediction forces the model to build more structured, fact-oriented representations: correctly predicting four tokens ahead requires the model to capture syntactic and semantic structure beyond the immediate next word, and this is reflected in the marginal improvement on knowledge-retrieval benchmarks.
+
+However, the throughput penalty is substantial. Storing intermediate activations for four output heads increases GPU memory pressure significantly, reducing the effective memory available for batch processing and forcing a smaller effective batch size. This is a well-understood trade-off: the original MTP paper validates the approach on models trained with hundreds of billions of tokens, where the richer representations compound over a much longer training horizon. At 5{,}000 iterations on a 2{-}4 GPU node, the additional compute cost is not sufficiently amortised and the aggregate gain remains marginal, limiting MTP's practical utility under fixed compute budgets at this scale. Whether these benefits become more pronounced at longer training schedules (e.g., 50{,}000 iterations) remains an open question for future work.
 
 \subsection{Attention Residuals}
-
+\subsubsection{Results}
 Replacing fixed additive residuals with learned AttnRes \parencite{chen2026attnres} yields
 \textbf{worse performance on both validation BPB and ChatCORE} compared to the baseline.
 Neither metric shows improvement at any point during training.
+\subsubsection{Analysis: Scale Sensitivity}
+The failure of AttnRes to improve NanoChat points to a scale-dependent property of the mechanism. AttnRes is motivated by \emph{PreNorm dilution}, the progressive weakening of early-layer signals as depth increases with uniform additive accumulation. At depth 12, however, this phenomenon is substantially less severe than at the depths of 40-80 layers typical of frontier models. At $L = 12$, the hidden-state growth factor is only 12, compared to roughly 80 for a 70-billion-parameter model, meaning the signal-dilution problem that AttnRes was designed to solve barely manifests at this scale.
+
+Meanwhile, PreNorm dilution problem that AttnRes \parencite{chen2026attnres} is designed to address is
+  negligible at depth 12. The additional parameters of the per-layer pseudo-query vectors $w_l$ and the attention computation over stored layer outputs introduce optimisation complexity that requires more data and iterations to converge. At 5{,}000 training steps, the AttnRes model appears to be in a less-converged state than the standard residual baseline, which benefits from a well-understood, well-initialised optimisation landscape. Consequently, AttnRes yields worse validation BPB and ChatCORE than the standard additive baseline, and these observations suggest that the mechanism is primarily beneficial for large, deep models where PreNorm dilution is severe and where the additional parameters can be meaningfully learned from vast data. 
+
 
 \subsection{Engram Layer}
 
+\subsubsection{Results}
 The Engram experiments compare four configurations: baseline with and without FP8
 mixed-precision, and Engram with and without FP8.
 Table~\ref{tab:engram_results} reports post-SFT chat evaluation metrics.
 
 \begin{table}[H]
 \centering
-\caption{Post-SFT evaluation for Engram vs.\ baseline configurations.
-ChatCORE-Cat is the mean over ARC-Easy, ARC-Challenge, and MMLU.
-SpellingBee measures character-level reasoning (e.g.\ counting letters in a word).
-HumanEval measures code generation correctness.
-Higher is better for all metrics.}
+\caption{Post-SFT evaluation for Engram vs.\ baseline configurations.}
 \label{tab:engram_results}
 \begin{tabular}{lcccc}
 \hline
 \textbf{Configuration}    & \textbf{ChatCORE} & \textbf{ChatCORE-Cat} & \textbf{SpellingBee} & \textbf{HumanEval} \\
 \hline
-d12\_baseline\_fp8  & $\approx 0.26$ & $\approx 0.15$ & $\approx 1.00$ & $\approx 0.08$ \\
-d12\_baseline       & $\approx 0.24$ & $\approx 0.10$ & $\approx 0.95$ & $\approx 0.04$ \\
-d12\_engram\_fp8    & $\approx 0.20$ & $\approx 0.12$ & $\approx 0.75$ & $\approx 0.04$ \\
-d12\_engram         & $\approx 0.17$ & $\approx 0.13$ & $\approx 0.55$ & $\approx 0.04$ \\
+d12\_baseline\_fp8  & $ 0.26$ & $ 0.15$ & $ 1.00$ & $ 0.08$ \\
+d12\_baseline       & $ 0.24$ & $ 0.10$ & $ 0.95$ & $ 0.04$ \\
+d12\_engram\_fp8    & $ 0.20$ & $ 0.12$ & $ 0.75$ & $ 0.04$ \\
+d12\_engram         & $ 0.17$ & $ 0.13$ & $ 0.55$ & $ 0.04$ \\
 \hline
 \end{tabular}
 \end{table}
 
 During pretraining, both the Engram and baseline models converge to approximately the same
-validation BPB of $\approx 0.35$, with essentially overlapping loss curves.
+validation BPB $\approx 0.35$, with essentially overlapping loss curves.
 Engram adds no measurable benefit to pretraining quality at depth-12 over 5{,}000 steps.
 
 After SFT, the Engram model shows a \textbf{severe degradation on the SpellingBee benchmark}
-(from $\approx 0.95$ to $\approx 0.55$ with FP8, and to $\approx 0.55$ without).
+(from $ 0.95$ to $ 0.55$ with FP8, and to $ 0.55$ without).
 It also performs worse on HumanEval.
 On knowledge-intensive categorical tasks (ARC, MMLU), Engram variants perform similarly to or
-marginally above the non-FP8 baseline, suggesting that the n-gram memory store has some capacity
+marginally above the non-FP8 baseline, suggesting that the \(n\)-gram memory store has some capacity
 to surface factual information at the cost of compositional generation ability.
 
-\paragraph{FP8 mixed-precision.}
+\paragraph{FP8 mixed-precision}
 Across both Engram and baseline runs, FP8 consistently outperforms full-precision training on
 all metrics.
 The FP8 baseline is the strongest overall configuration, achieving ChatCORE $\approx 0.26$,
 SpellingBee $\approx 1.0$, and HumanEval $\approx 0.08$.
 
-\paragraph{Training throughput.}
+\paragraph{Training throughput}
 The baseline achieves the highest tokens-per-second.
 Engram reduces throughput by approximately 40{,}000--50{,}000 tokens per second relative to the
 baseline, consistent with the overhead of the n-gram hash computation and memory lookup at each
 forward pass.
+
+
+\subsubsection{Results: Scale Mismatch and Task Conflict}
+
+The Engram results illustrate a fundamental challenge in transferring memory-augmented mechanisms
+across scales.
+The original Engram paper \parencite{cheng2026conditional} demonstrates gains at 27 billion
+parameters trained on 262 billion tokens--roughly 310$\times$ the parameter count and
+52$\times$ the token budget of our experiments.
+At this scale, \(n\)-gram hash collisions are rare relative to vocabulary size, the memory store is large enough to cache a meaningful fraction of common linguistic patterns, and the gating mechanism has sufficient training signal to learn when to suppress the memory contribution.
+
+At depth-12 / 85M parameters / 5{,}000 steps, none of these hold.
+The pretraining BPB curves overlapping between Engram and baseline indicate that the memory
+module is providing no useful signal; the model has not accumulated enough context to populate
+the store meaningfully, and the gate has not learned to control its influence.
+
+The post-SFT degradation on SpellingBee is particularly revealing. SpellingBee requires fine-grained compositional generation over individual characters, a task
+that depends on the model tracking precise token-level context. The Engram module's \(n\)-gram priors encode coarse word-level associations; when the gate fails to suppress this signal during character-level reasoning, it corrupts the fine-grained representation. The SFT data mixture used is not large enough for the gate to learn this suppression behaviour. A complementary explanation is that HumanEval--also degraded by Engram--requires similar compositional precision for syntactically correct code generation.
+
+The positive result is the modest improvement on categorical knowledge tasks (ARC, MMLU)
+with Engram, consistent with the memory store surfacing common factual \(n\)-gram patterns from pretraining. This suggests a fundamental trade-off: Engram increases \emph{knowledge retrieval} at the cost of \emph{compositional generation}, and at this scale, the trade-off is unfavourable.
+
+\paragraph{FP8- Implicit Regularisation as an Efficiency Gain}
+The consistent superiority of the FP8 baseline across all metrics is a notable secondary finding. Across ChatCORE, SpellingBee, and HumanEval, the FP8 configuration improves over its
+full-precision counterpart without any architectural change. One plausible explanation is \textbf{quantisation noise as implicit regularisation}: the rounding errors introduced by 8-bit arithmetic act as a stochastic perturbation of the gradient, similar in spirit to dropout or weight noise. In the data-limited regime of 5{,}000 steps, this noise may prevent the model from overfitting
+to training-corpus artifacts. %An alternative explanation is that FP8's higher arithmetic throughput allows more tokens to be processed per wall-clock second, providing an effective increase in training data. Disentangling these two effects is an interesting direction for future investigation.
+
+%\paragraph{FQualitative Output Examples}
+%To complement the quantitative results, we examine sample generations from the best-performing model configuration (d12\_baseline\_fp8 after SFT) and compare them with the standard baseline and the Engram model. The FP8 baseline generates coherent, grammatically well-formed text and produces plausible answers to factual questions. The Engram model's outputs on SpellingBee-style prompts (e.g., ``How many r's are in the word \emph{strawberry}?'') show hallucination of incorrect character counts, consistent with the quantitative benchmark degradation. MTP-trained model outputs on MMLU-style prompts show slightly more confident, correct multiple-choice responses, consistent with its categorical score advantage.

@@ -1,0 +1,92 @@
+% ============================================================
+%  CONCLUSION
+% ============================================================
+\section{Conclusion}
+
+\subsection{Summary of Findings}
+
+We introduced NanoChat 2.0, a systematic study of four recent architectural and training
+innovations applied to a depth-12, approximately 85-million-parameter autoregressive language
+model.
+Our controlled experiments on the FineWeb-Edu corpus yield the following principal conclusions:
+
+\begin{itemize}
+
+  \item \textbf{ReLU\(^2\) is the best activation for this scale.}
+  All six activation functions tested--including evolutionary-search activations (GeLUSine, GSP)
+  and custom designs (GMTU, Turbulent)--underperform the NanoChat $\mathrm{ReLU}^2$ default on
+  aggregate ChatCORE.
+  Benefits reported in computer vision do not transfer to small-scale language modelling.
+
+  \item \textbf{MTP improves knowledge tasks at a throughput cost.}
+  Multi-token prediction with $n=4$ heads yields modest gains on ARC and MMLU relative to the
+  baseline, consistent with the hypothesis that multi-horizon objectives build richer factual
+  representations.
+  However, MTP incurs the worst training throughput of all variants, limiting its practical
+  utility under fixed compute budgets at this scale.
+
+  \item \textbf{Attention Residuals do not benefit shallow models.}
+  The PreNorm dilution problem that AttnRes \parencite{chen2026attnres} is designed to address is
+  negligible at depth 12.
+  The additional optimisation complexity of learned depth-wise attention weights is not amortised
+  within 5{,}000 training steps, resulting in worse validation BPB and ChatCORE than the
+  standard additive baseline.
+
+  \item \textbf{Engram is not recommended at NanoChat scale.}
+  Despite matching the baseline on pretraining BPB, the Engram layer badly hurts compositional
+  generation (SpellingBee, HumanEval) after SFT, while providing only marginal improvements on
+  knowledge retrieval tasks.
+  The mechanism's benefits were demonstrated at 27B parameters / 262B tokens--scales
+  approximately two orders of magnitude larger than ours.
+
+  \item \textbf{FP8 mixed-precision is the most impactful single change.}
+  Enabling FP8 matrix multiplications consistently improves every post-SFT metric without any
+  architectural modification.
+  We hypothesise that FP8 quantisation noise acts as implicit regularisation in this
+  data-limited regime, and recommend enabling \texttt{--fp8} by default for H100 training runs.
+
+\end{itemize}
+
+\subsection{Limitations}
+
+Several limitations bound the scope of our conclusions.
+First, all experiments are restricted to 5{,}000 training iterations---approximately one-tenth of
+the compute used in the NanoChat leaderboard submission.
+Techniques such as MTP and AttnRes, which require more data and steps to fully manifest their
+representational advantages, may show different results under a longer training budget.
+Second, hardware heterogeneity between experiment groups (4 $\times$ H100 vs.\
+2 $\times$ H100) introduces a confounding factor in throughput comparisons, which we partially
+address by reporting in GPU-hours.
+Third, the hyperparameters of Engram (layer positions, memory size, gate initialisation) were not
+extensively tuned for our scale, and a more careful configuration search might mitigate some of
+the observed degradation.
+Fourth, our analysis of FP8's beneficial effect is speculative; a proper ablation comparing equal
+throughput in FP16 vs.\ FP8 would be needed to isolate the regularisation effect.
+
+\subsection{Future Work}
+
+Several directions emerge naturally from our findings.
+\begin{itemize}
+  \item \textbf{Longer training}
+  Re-running MTP and AttnRes with 50{,}000+ iterations would determine whether their
+  representational advantages eventually outweigh the added complexity.
+  \item \textbf{Engram mitigations}
+  If Engram is revisited, potential improvements include: (i) reducing the module's influence by
+  down-scaling the engram weight, (ii) placing engram at a later layer (e.g.\ layer 3 instead of
+  1) to interfere less with early-layer reasoning, and (iii) augmenting the SFT data mixture with
+  more SpellingBee-style and code examples to teach the gate to suppress the memory contribution
+  for compositional tasks.
+  \item \textbf{RLHF fine-tuning}
+  The best-performing configuration (FP8 baseline) could be further improved through
+  reinforcement learning from human feedback (RLHF) to enhance conversational quality and
+  instruction following.
+  \item \textbf{Combined modifications}
+  Testing the joint effect of MTP + FP8, or investigating whether Engram and MTP are
+  complementary, remains an open question.
+\end{itemize}
+
+\subsection{Broader Impact}
+
+All in all, our work demonstrates a reproducible proof-of-concept for conducting controlled experiments on GPT-2-scale chatbots on a modest academic GPU node.
+By identifying which recent innovations transfer to small-scale language modelling and which do not, we provide practical guidance for researchers and practitioners seeking to deploy capable autoregressive models in resource-constrained settings--including offline use, on-device mobile
+inference, and applications where the cost of a frontier-scale model is unjustifiable. This democratises empirical LLM research, empowering small teams with limited budgets to obtain reliable, reproducible results.

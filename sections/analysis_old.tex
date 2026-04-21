@@ -70,55 +70,35 @@ vast data.
 The Engram results illustrate a fundamental challenge in transferring memory-augmented mechanisms
 across scales.
 The original Engram paper \parencite{cheng2026conditional} demonstrates gains at 27 billion
-parameters trained on 262 billion tokens---roughly 310$\times$ the parameter count and
+parameters trained on 262 billion tokens--roughly 310$\times$ the parameter count and
 52$\times$ the token budget of our experiments.
-At this scale, n-gram hash collisions are rare relative to vocabulary size, the memory store is
+At this scale, \(n\)-gram hash collisions are rare relative to vocabulary size, the memory store is
 large enough to cache a meaningful fraction of common linguistic patterns, and the gating
 mechanism has sufficient training signal to learn when to suppress the memory contribution.
 
 At depth-12 / 85M parameters / 5{,}000 steps, none of these conditions hold.
 The pretraining BPB curves overlapping between Engram and baseline indicate that the memory
-module is providing no useful signal---the model has not accumulated enough context to populate
+module is providing no useful signal--the model has not accumulated enough context to populate
 the store meaningfully, and the gate has not learned to control its influence.
 
 The post-SFT degradation on SpellingBee is particularly revealing.
 SpellingBee requires fine-grained compositional generation over individual characters, a task
 that depends on the model tracking precise token-level context.
-The Engram module's n-gram priors encode coarse word-level associations; when the gate fails to
-suppress this signal during character-level reasoning, it corrupts the fine-grained representation.
-The SFT data mixture used is not large enough for the gate to learn this suppression behaviour.
-A complementary explanation is that HumanEval---also degraded by Engram---requires similar
-compositional precision for syntactically correct code generation.
+The Engram module's \(n\)-gram priors encode coarse word-level associations; when the gate fails to suppress this signal during character-level reasoning, it corrupts the fine-grained representation. The SFT data mixture used is not large enough for the gate to learn this suppression behaviour. A complementary explanation is that HumanEval--also degraded by Engram--requires similar compositional precision for syntactically correct code generation.
 
 The one positive signal is the modest improvement on categorical knowledge tasks (ARC, MMLU)
-with Engram, consistent with the memory store surfacing common factual n-gram patterns from
-pretraining.
-This suggests a fundamental trade-off: Engram increases \emph{knowledge retrieval} at the cost
-of \emph{compositional generation}, and at this scale the trade-off is unfavourable.
+with Engram, consistent with the memory store surfacing common factual \(n\)-gram patterns from pretraining. This suggests a fundamental trade-off: Engram increases \emph{knowledge retrieval} at the cost of \emph{compositional generation}, and at this scale the trade-off is unfavourable.
 
 \subsection{FP8: Implicit Regularisation as an Efficiency Gain}
 
-The consistent superiority of the FP8 baseline across all metrics is a notable secondary finding.
-Across ChatCORE, SpellingBee, and HumanEval, the FP8 configuration improves over its
-full-precision counterpart without any architectural change.
-One plausible explanation is \textbf{quantisation noise as implicit regularisation}: the rounding
-errors introduced by 8-bit arithmetic act as a stochastic perturbation of the gradient, similar
-in spirit to dropout or weight noise.
+The consistent superiority of the FP8 baseline across all metrics is a notable secondary finding. Across ChatCORE, SpellingBee, and HumanEval, the FP8 configuration improves over its
+full-precision counterpart without any architectural change. One plausible explanation is \textbf{quantisation noise as implicit regularisation}: the rounding errors introduced by 8-bit arithmetic act as a stochastic perturbation of the gradient, similar in spirit to dropout or weight noise.
+
 In the data-limited regime of 5{,}000 steps, this noise may prevent the model from overfitting
-to training-corpus artifacts.
-An alternative explanation is that FP8's higher arithmetic throughput allows more tokens to be
-processed per wall-clock second, providing an effective increase in training data.
-Disentangling these two effects is an interesting direction for future investigation.
+to training-corpus artifacts. An alternative explanation is that FP8's higher arithmetic throughput allows more tokens to be processed per wall-clock second, providing an effective increase in training data. Disentangling these two effects is an interesting direction for future investigation.
 
 \subsection{Qualitative Output Examples}
 
 To complement the quantitative results, we examine sample generations from the best-performing
 model configuration (d12\_baseline\_fp8 after SFT) and compare them with the standard baseline
-and the Engram model.
-The FP8 baseline generates coherent, grammatically well-formed text and produces plausible
-answers to factual questions.
-The Engram model's outputs on SpellingBee-style prompts (e.g., ``How many r's are in the word
-\emph{strawberry}?'') show hallucination of incorrect character counts, consistent with the
-quantitative benchmark degradation.
-MTP-trained model outputs on MMLU-style prompts show slightly more confident, correct
-multiple-choice responses, consistent with its categorical score advantage.
+and the Engram model. The FP8 baseline generates coherent, grammatically well-formed text and produces plausible answers to factual questions. The Engram model's outputs on SpellingBee-style prompts (e.g., ``How many r's are in the word \emph{strawberry}?'') show hallucination of incorrect character counts, consistent with the quantitative benchmark degradation. MTP-trained model outputs on MMLU-style prompts show slightly more confident, correct multiple-choice responses, consistent with its categorical score advantage.
