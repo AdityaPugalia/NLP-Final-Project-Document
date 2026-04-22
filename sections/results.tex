@@ -4,7 +4,6 @@
 \section{Results}
 
 \subsection{Activation Functions}
-\subsubsection{Results}
 Figure~\ref{fig:act_chatcore} shows the ChatCORE and ChatCORE-Categorical training curves across
 all activation function variants and the MTP experiment over 5{,}000 iterations.
 The NanoChat baseline with $\mathrm{ReLU}^2$ achieves the highest final ChatCORE score,
@@ -36,14 +35,12 @@ While the evolutionary-search activations (GeLUSine and GSP) showed gains on com
 benchmarks \parencite{vitvitskyi2026mininggeneralizableactivationfunctions}, these benefits do
 not transfer to small-scale autoregressive language modelling.
 
-\subsubsection{Analysis: $\mathrm{ReLU}^2$ Resists Replacement}
 NanoChat's activation was not chosen arbitrarily: prior work \parencite{so2021primer} found that $\mathrm{ReLU}^2$ induces a higher degree of activation sparsity than GeLU in autoregressive language models, and this sparsity has been linked to more efficient gradient flow and improved loss scaling.
 The sinusoidal perturbations introduced by GeLUSine and GSP add frequency-domain oscillations which introduced unnecessary noise in the token-level statistical setting of language modelling. The GMTU's Gaussian damping envelope effectively zeroes out large activations, which may suppress the model's ability to represent high-magnitude, semantically salient tokens. The Turbulent activation's batch-level normalisation step couples activations across the batch dimension, creating implicit dependencies that conflict with NanoChat's causal masking. The GMTU and Turbulent activations also incur measurable overhead: the Turbulent activation's batch-normalisation step is particularly costly, as it requires a synchronisation pass across the batch dimension. The key lesson is that activation function design interacts tightly with the training objective and data modality.
 Evolutionary search optimising for cross-dataset performance on vision tasks has yet to reliably produce activations suited to language modelling, even at small scale.
 
 
 \subsection{Multi-Token Prediction}
-\subsubsection{Results}
 MTP with $n=4$ heads shows a nuanced performance profile visible in Figure~\ref{fig:act_chatcore}.
 On the aggregate ChatCORE metric, MTP (orange) performs comparably to the $\mathrm{ReLU}^2$ baseline.
 On the ChatCORE-Categorical sub-score (ARC-Easy, ARC-Challenge, MMLU), MTP achieves a modest
@@ -61,13 +58,11 @@ tokens-per-second} of all variants tested, as shown in Figure~\ref{fig:act_tps}.
   \label{fig:act_tps}
 \end{figure}
 
-\subsubsection{Analysis: Richer Representations at a Throughput Cost}
 MTP with $n=4$ heads presents an interesting tension between representational quality and training efficiency. The improved ChatCORE-Categorical performance on ARC and MMLU is consistent with the hypothesis of \textcite{gloeckle2024better} that multi-horizon prediction forces the model to build more structured, fact-oriented representations: correctly predicting four tokens ahead requires the model to capture syntactic and semantic structure beyond the immediate next word, and this is reflected in the marginal improvement on knowledge-retrieval benchmarks.
 
 However, the throughput penalty is substantial. Storing intermediate activations for four output heads increases GPU memory pressure significantly, reducing the effective memory available for batch processing and forcing a smaller effective batch size. This is a well-understood trade-off: the original MTP paper validates the approach on models trained with hundreds of billions of tokens, where the richer representations compound over a much longer training horizon. At 5{,}000 iterations on a 2{-}4 GPU node, the additional compute cost is not sufficiently amortised and the aggregate gain remains marginal, limiting MTP's practical utility under fixed compute budgets at this scale.
 
 \subsection{Attention Residuals}
-\subsubsection{Results}
 Replacing fixed additive residuals with learned AttnRes \parencite{chen2026attnres} yields
 \textbf{worse performance on both validation BPB and ChatCORE} compared to the baseline,
 as shown in Figure~\ref{fig:attn_res}.
@@ -94,7 +89,6 @@ Neither metric shows improvement at any point during training.
   \label{fig:attn_res}
 \end{figure}
 
-\subsubsection{Analysis: Scale Sensitivity}
 The failure of AttnRes to improve NanoChat points to a scale-dependent property of the mechanism. AttnRes is motivated by \emph{PreNorm dilution}, the progressive weakening of early-layer signals as depth increases with uniform additive accumulation. At depth 12, however, this phenomenon is substantially less severe than at the depths of 40--80 layers typical of frontier models. At $L = 12$, the hidden-state growth factor is only 12, compared to roughly 80 for a 70-billion-parameter model, meaning the signal-dilution problem that AttnRes was designed to solve barely manifests at this scale.
 
 The additional parameters of the per-layer pseudo-query vectors $w_l$ and the attention computation over stored layer outputs introduce optimisation complexity that requires more data and iterations to converge. At 5{,}000 training steps, the AttnRes model appears to be in a less-converged state than the standard residual baseline, which benefits from a well-understood, well-initialised optimisation landscape. These observations suggest that the mechanism is primarily beneficial for large, deep models where PreNorm dilution is severe and where the additional parameters can be meaningfully learned from vast data.
@@ -102,7 +96,6 @@ The additional parameters of the per-layer pseudo-query vectors $w_l$ and the at
 
 \subsection{Engram Layer}
 
-\subsubsection{Results}
 The Engram experiments compare four configurations: baseline with and without FP8
 mixed-precision, and Engram with and without FP8.
 Table~\ref{tab:engram_results} reports post-SFT chat evaluation metrics.
@@ -168,8 +161,6 @@ Engram reduces throughput by approximately 40{,}000--50{,}000 tokens per second 
 baseline, consistent with the overhead of the n-gram hash computation and memory lookup at each
 forward pass.
 
-
-\subsubsection{Analysis: Scale Mismatch and Task Conflict}
 
 The Engram results illustrate a fundamental challenge in transferring memory-augmented mechanisms
 across scales.
